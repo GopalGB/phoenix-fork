@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<821e958ae44422b9aa2886a203e76bc4>>
+ * @generated SignedSource<<1cb8c24c9d744f0428d6713d42c93a12>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -12,7 +12,9 @@ import { ReaderFragment } from 'relay-runtime';
 export type PromptToolChoiceType = "NONE" | "ONE_OR_MORE" | "SPECIFIC_FUNCTION" | "ZERO_OR_MORE";
 import { FragmentRefs } from "relay-runtime";
 export type PromptInvocationParameters__main$data = {
-  readonly invocationParameters: any | null;
+  readonly invocationParameters: {
+    readonly " $fragmentSpreads": FragmentRefs<"PromptInvocationParametersReadableFragment">;
+  };
   readonly tools: {
     readonly toolChoice: {
       readonly functionName: string | null;
@@ -26,7 +28,50 @@ export type PromptInvocationParameters__main$key = {
   readonly " $fragmentSpreads": FragmentRefs<"PromptInvocationParameters__main">;
 };
 
-const node: ReaderFragment = {
+const node: ReaderFragment = (function(){
+var v0 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "__typename",
+  "storageKey": null
+},
+v1 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "temperature",
+  "storageKey": null
+},
+v2 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "frequencyPenalty",
+  "storageKey": null
+},
+v3 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "presencePenalty",
+  "storageKey": null
+},
+v4 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "topP",
+  "storageKey": null
+},
+v5 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "stopSequences",
+  "storageKey": null
+};
+return {
   "argumentDefinitions": [],
   "kind": "Fragment",
   "metadata": null,
@@ -35,8 +80,159 @@ const node: ReaderFragment = {
     {
       "alias": null,
       "args": null,
-      "kind": "ScalarField",
+      "concreteType": null,
+      "kind": "LinkedField",
       "name": "invocationParameters",
+      "plural": false,
+      "selections": [
+        {
+          "kind": "InlineDataFragmentSpread",
+          "name": "PromptInvocationParametersReadableFragment",
+          "selections": [
+            (v0/*: any*/),
+            {
+              "kind": "InlineFragment",
+              "selections": [
+                (v1/*: any*/),
+                {
+                  "alias": "openaiMaxTokens",
+                  "args": null,
+                  "kind": "ScalarField",
+                  "name": "maxTokens",
+                  "storageKey": null
+                },
+                {
+                  "alias": null,
+                  "args": null,
+                  "kind": "ScalarField",
+                  "name": "maxCompletionTokens",
+                  "storageKey": null
+                },
+                (v2/*: any*/),
+                (v3/*: any*/),
+                (v4/*: any*/),
+                {
+                  "alias": null,
+                  "args": null,
+                  "kind": "ScalarField",
+                  "name": "seed",
+                  "storageKey": null
+                },
+                {
+                  "alias": null,
+                  "args": null,
+                  "kind": "ScalarField",
+                  "name": "reasoningEffort",
+                  "storageKey": null
+                }
+              ],
+              "type": "PromptOpenAIInvocationParameters",
+              "abstractKey": null
+            },
+            {
+              "kind": "InlineFragment",
+              "selections": [
+                {
+                  "alias": "anthropicMaxTokens",
+                  "args": null,
+                  "kind": "ScalarField",
+                  "name": "maxTokens",
+                  "storageKey": null
+                },
+                (v1/*: any*/),
+                (v4/*: any*/),
+                (v5/*: any*/),
+                {
+                  "alias": null,
+                  "args": null,
+                  "concreteType": null,
+                  "kind": "LinkedField",
+                  "name": "thinking",
+                  "plural": false,
+                  "selections": [
+                    (v0/*: any*/),
+                    {
+                      "kind": "InlineFragment",
+                      "selections": [
+                        {
+                          "alias": null,
+                          "args": null,
+                          "kind": "ScalarField",
+                          "name": "disabled",
+                          "storageKey": null
+                        }
+                      ],
+                      "type": "PromptAnthropicThinkingDisabled",
+                      "abstractKey": null
+                    },
+                    {
+                      "kind": "InlineFragment",
+                      "selections": [
+                        {
+                          "alias": null,
+                          "args": null,
+                          "kind": "ScalarField",
+                          "name": "budgetTokens",
+                          "storageKey": null
+                        }
+                      ],
+                      "type": "PromptAnthropicThinkingEnabled",
+                      "abstractKey": null
+                    }
+                  ],
+                  "storageKey": null
+                }
+              ],
+              "type": "PromptAnthropicInvocationParameters",
+              "abstractKey": null
+            },
+            {
+              "kind": "InlineFragment",
+              "selections": [
+                (v1/*: any*/),
+                {
+                  "alias": null,
+                  "args": null,
+                  "kind": "ScalarField",
+                  "name": "maxOutputTokens",
+                  "storageKey": null
+                },
+                (v5/*: any*/),
+                (v3/*: any*/),
+                (v2/*: any*/),
+                (v4/*: any*/),
+                {
+                  "alias": null,
+                  "args": null,
+                  "kind": "ScalarField",
+                  "name": "topK",
+                  "storageKey": null
+                }
+              ],
+              "type": "PromptGoogleInvocationParameters",
+              "abstractKey": null
+            },
+            {
+              "kind": "InlineFragment",
+              "selections": [
+                {
+                  "alias": "awsMaxTokens",
+                  "args": null,
+                  "kind": "ScalarField",
+                  "name": "maxTokens",
+                  "storageKey": null
+                },
+                (v1/*: any*/),
+                (v4/*: any*/)
+              ],
+              "type": "PromptAwsInvocationParameters",
+              "abstractKey": null
+            }
+          ],
+          "args": null,
+          "argumentDefinitions": []
+        }
+      ],
       "storageKey": null
     },
     {
@@ -79,7 +275,8 @@ const node: ReaderFragment = {
   "type": "PromptVersion",
   "abstractKey": null
 };
+})();
 
-(node as any).hash = "24f552e356fb079a00e9ef0ad4172926";
+(node as any).hash = "5830845ad806e2a809e721a2f823cf1a";
 
 export default node;

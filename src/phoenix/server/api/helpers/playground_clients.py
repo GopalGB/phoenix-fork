@@ -8,7 +8,6 @@ from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager
 from itertools import chain
 from secrets import token_hex
-from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -71,6 +70,11 @@ from phoenix.db.types.model_provider import (
     openai_rate_limit_key,
 )
 from phoenix.db.types.prompts import (
+    PromptAnthropicInvocationParameters,
+    PromptAwsInvocationParameters,
+    PromptGoogleInvocationParameters,
+    PromptInvocationParameters,
+    PromptOpenAIInvocationParameters,
     PromptResponseFormat,
     PromptTools,
 )
@@ -79,16 +83,6 @@ from phoenix.server.api.helpers.message_helpers import PlaygroundMessage, Playgr
 from phoenix.server.api.helpers.playground_registry import PROVIDER_DEFAULT, register_llm_client
 from phoenix.server.api.input_types.ConnectionConfigInput import OPENAI_SDK_STYLE_PROVIDER_KEYS
 from phoenix.server.api.input_types.GenerativeCredentialInput import GenerativeCredentialInput
-from phoenix.server.api.input_types.InvocationParameters import (
-    BoundedFloatInvocationParameter,
-    CanonicalParameterName,
-    FloatInvocationParameter,
-    IntInvocationParameter,
-    InvocationParameter,
-    JSONInvocationParameter,
-    StringInvocationParameter,
-    StringListInvocationParameter,
-)
 from phoenix.server.api.input_types.ModelClientOptionsInput import OpenAIApiType
 from phoenix.server.api.types.ChatCompletionMessageRole import ChatCompletionMessageRole
 from phoenix.server.api.types.ChatCompletionSubscriptionPayload import (
@@ -183,17 +177,13 @@ class PlaygroundStreamingClient(ABC, Generic[ClientT]):
         # A list of dependencies this client needs to run
         ...
 
-    @classmethod
-    @abstractmethod
-    def supported_invocation_parameters(cls) -> list[InvocationParameter]: ...
-
     async def chat_completion_create(
         self,
         *,
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None = None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptInvocationParameters | None = None,
         tracer: Tracer | None = None,
         otel_context: OtelContext | None = None,
         stream_model_output: bool = True,
@@ -245,7 +235,7 @@ class PlaygroundStreamingClient(ABC, Generic[ClientT]):
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptInvocationParameters | None = None,
         span: OTelSpan,
         stream_model_output: bool = True,
     ) -> AsyncIterator[ChatCompletionChunk]: ...
@@ -366,65 +356,13 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
             return True
         return isinstance(e, APIStatusError) and 500 <= e.status_code
 
-    @classmethod
-    def supported_invocation_parameters(cls) -> list[InvocationParameter]:
-        return [
-            BoundedFloatInvocationParameter(
-                invocation_name="temperature",
-                canonical_name=CanonicalParameterName.TEMPERATURE,
-                label="Temperature",
-                min_value=0.0,
-                max_value=2.0,
-            ),
-            IntInvocationParameter(
-                invocation_name="max_completion_tokens",
-                canonical_name=CanonicalParameterName.MAX_COMPLETION_TOKENS,
-                label="Max Completion Tokens",
-            ),
-            BoundedFloatInvocationParameter(
-                invocation_name="frequency_penalty",
-                label="Frequency Penalty",
-                default_value=0.0,
-                min_value=-2.0,
-                max_value=2.0,
-            ),
-            BoundedFloatInvocationParameter(
-                invocation_name="presence_penalty",
-                label="Presence Penalty",
-                default_value=0.0,
-                min_value=-2.0,
-                max_value=2.0,
-            ),
-            StringListInvocationParameter(
-                invocation_name="stop",
-                canonical_name=CanonicalParameterName.STOP_SEQUENCES,
-                label="Stop Sequences",
-            ),
-            BoundedFloatInvocationParameter(
-                invocation_name="top_p",
-                canonical_name=CanonicalParameterName.TOP_P,
-                label="Top P",
-                min_value=0.0,
-                max_value=1.0,
-            ),
-            IntInvocationParameter(
-                invocation_name="seed",
-                canonical_name=CanonicalParameterName.RANDOM_SEED,
-                label="Seed",
-            ),
-            JSONInvocationParameter(
-                invocation_name="extra_body",
-                label="Extra Body",
-            ),
-        ]
-
     def _openai_chat_completion_build_params(
         self,
         *,
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptOpenAIInvocationParameters | None = None,
         span: OTelSpan,
     ) -> tuple[CompletionCreateParamsBase, dict[str, Any] | None]:
         from openai.types.chat import ChatCompletionFunctionToolParam
@@ -493,41 +431,25 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
             elif TYPE_CHECKING:
                 assert_never(response_format.type)
 
-        if invocation_parameters:
-            if "temperature" in invocation_parameters and isinstance(
-                invocation_parameters["temperature"], float
-            ):
-                params["temperature"] = invocation_parameters["temperature"]
-            if "max_completion_tokens" in invocation_parameters and isinstance(
-                invocation_parameters["max_completion_tokens"], int
-            ):
-                params["max_completion_tokens"] = invocation_parameters["max_completion_tokens"]
-            if "max_tokens" in invocation_parameters and isinstance(
-                invocation_parameters["max_tokens"], int
-            ):
-                params["max_completion_tokens"] = invocation_parameters["max_tokens"]
-            if "frequency_penalty" in invocation_parameters and isinstance(
-                invocation_parameters["frequency_penalty"], float
-            ):
-                params["frequency_penalty"] = invocation_parameters["frequency_penalty"]
-            if "presence_penalty" in invocation_parameters and isinstance(
-                invocation_parameters["presence_penalty"], float
-            ):
-                params["presence_penalty"] = invocation_parameters["presence_penalty"]
-            if "stop" in invocation_parameters and isinstance(invocation_parameters["stop"], list):
-                params["stop"] = invocation_parameters["stop"]
-            if "top_p" in invocation_parameters and isinstance(
-                invocation_parameters["top_p"], float
-            ):
-                params["top_p"] = invocation_parameters["top_p"]
-            if "seed" in invocation_parameters and isinstance(invocation_parameters["seed"], int):
-                params["seed"] = invocation_parameters["seed"]
-
         extra_body: dict[str, Any] | None = None
-        if "extra_body" in invocation_parameters and isinstance(
-            invocation_parameters["extra_body"], dict
-        ):
-            extra_body = invocation_parameters["extra_body"]
+
+        if invocation_parameters:
+            if isinstance(invocation_parameters.openai.temperature, float):
+                params["temperature"] = invocation_parameters.openai.temperature
+            if isinstance(invocation_parameters.openai.max_completion_tokens, int):
+                params["max_completion_tokens"] = invocation_parameters.openai.max_completion_tokens
+            if isinstance(invocation_parameters.openai.max_tokens, int):
+                params["max_completion_tokens"] = invocation_parameters.openai.max_tokens
+            if isinstance(invocation_parameters.openai.frequency_penalty, float):
+                params["frequency_penalty"] = invocation_parameters.openai.frequency_penalty
+            if isinstance(invocation_parameters.openai.presence_penalty, float):
+                params["presence_penalty"] = invocation_parameters.openai.presence_penalty
+            if isinstance(invocation_parameters.openai.top_p, float):
+                params["top_p"] = invocation_parameters.openai.top_p
+            if isinstance(invocation_parameters.openai.seed, int):
+                params["seed"] = invocation_parameters.openai.seed
+            if invocation_parameters.openai.reasoning_effort:
+                params["reasoning_effort"] = invocation_parameters.openai.reasoning_effort
 
         if tool_params := params.get("tools"):
             for i, tool_param in enumerate(tool_params):
@@ -551,7 +473,7 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptOpenAIInvocationParameters | None = None,
         span: OTelSpan,
     ) -> AsyncStream[OpenAIChatCompletionChunk]:
         from openai.types.chat import ChatCompletionStreamOptionsParam
@@ -579,7 +501,7 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptOpenAIInvocationParameters | None = None,
         span: OTelSpan,
     ) -> "ChatCompletion":
         from openai.types.chat import ChatCompletion
@@ -638,7 +560,7 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptOpenAIInvocationParameters | None = None,
         span: OTelSpan,
     ) -> tuple[Any, dict[str, Any] | None]:
         from openai.types.responses.function_tool_param import FunctionToolParam
@@ -650,6 +572,7 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
             ResponseTextConfigParam,
         )
         from openai.types.responses.tool_choice_function_param import ToolChoiceFunctionParam
+        from openai.types.shared_params.reasoning import Reasoning
 
         params = ResponseCreateParamsBase(
             input=self._to_openai_response_input_item_param(messages),
@@ -704,35 +627,19 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
             elif TYPE_CHECKING:
                 assert_never(response_format.type)
 
-        if invocation_parameters:
-            if "temperature" in invocation_parameters and isinstance(
-                invocation_parameters["temperature"], float
-            ):
-                params["temperature"] = invocation_parameters["temperature"]
-            if "max_completion_tokens" in invocation_parameters and isinstance(
-                invocation_parameters["max_completion_tokens"], int
-            ):
-                params["max_output_tokens"] = invocation_parameters["max_completion_tokens"]
-            if "top_p" in invocation_parameters and isinstance(
-                invocation_parameters["top_p"], float
-            ):
-                params["top_p"] = invocation_parameters["top_p"]
-            if "reasoning_effort" in invocation_parameters and isinstance(
-                invocation_parameters["reasoning_effort"], str
-            ):
-                from openai.types.shared_params.reasoning import Reasoning
-                from openai.types.shared_params.reasoning_effort import ReasoningEffort
-
-                params["reasoning"] = Reasoning(
-                    effort=cast(ReasoningEffort, invocation_parameters["reasoning_effort"])
-                )
-
         extra_body: dict[str, Any] | None = None
-        if "extra_body" in invocation_parameters and isinstance(
-            invocation_parameters["extra_body"], dict
-        ):
-            extra_body = invocation_parameters["extra_body"]
-
+        reasoning: Reasoning = Reasoning()
+        if invocation_parameters:
+            if isinstance(invocation_parameters.openai.temperature, float):
+                params["temperature"] = invocation_parameters.openai.temperature
+            if isinstance(invocation_parameters.openai.max_completion_tokens, int):
+                params["max_output_tokens"] = invocation_parameters.openai.max_completion_tokens
+            if isinstance(invocation_parameters.openai.top_p, float):
+                params["top_p"] = invocation_parameters.openai.top_p
+            if invocation_parameters.openai.reasoning_effort:
+                reasoning["effort"] = invocation_parameters.openai.reasoning_effort
+        if reasoning:
+            params["reasoning"] = reasoning
         if tool_params := params.get("tools"):
             for i, tool_param in enumerate(tool_params):
                 span.set_attribute(f"llm.tools.{i}.tool.json_schema", safe_json_dumps(tool_param))
@@ -755,7 +662,7 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptOpenAIInvocationParameters | None = None,
         span: OTelSpan,
     ) -> AsyncResponseStreamManager[Any]:
         params, extra_body = self._openai_response_build_params(
@@ -776,10 +683,14 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptInvocationParameters | None = None,
         span: OTelSpan,
         stream_model_output: bool = True,
     ) -> AsyncIterator[ChatCompletionChunk]:
+        if invocation_parameters is not None and not isinstance(
+            invocation_parameters, PromptOpenAIInvocationParameters
+        ):
+            raise ValueError("invocation_parameters must be a PromptOpenAIInvocationParameters")
         text_chunks: list[TextChunk] = []
         tool_call_chunks: defaultdict[ToolCallID, list[ToolCallChunk]] = defaultdict(list)
         if not stream_model_output:
@@ -954,7 +865,7 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptOpenAIInvocationParameters | None = None,
         span: OTelSpan,
         stream_model_output: bool = True,
     ) -> AsyncIterator[ChatCompletionChunk]:
@@ -1576,42 +1487,20 @@ class BedrockStreamingClient(PlaygroundStreamingClient["BedrockRuntimeClient"]):
         """Bedrock has per-model, per-region rate limits."""
         return (self._client_factory.rate_limit_key, self.model_name)
 
-    @classmethod
-    def supported_invocation_parameters(cls) -> list[InvocationParameter]:
-        return [
-            IntInvocationParameter(
-                invocation_name="max_tokens",
-                canonical_name=CanonicalParameterName.MAX_COMPLETION_TOKENS,
-                label="Max Tokens",
-                default_value=1024,
-            ),
-            BoundedFloatInvocationParameter(
-                invocation_name="temperature",
-                canonical_name=CanonicalParameterName.TEMPERATURE,
-                label="Temperature",
-                default_value=1.0,
-                min_value=0.0,
-                max_value=1.0,
-            ),
-            BoundedFloatInvocationParameter(
-                invocation_name="top_p",
-                canonical_name=CanonicalParameterName.TOP_P,
-                label="Top P",
-                min_value=0.0,
-                max_value=1.0,
-            ),
-        ]
-
     async def _chat_completion_create(
         self,
         *,
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptInvocationParameters | None = None,
         span: OTelSpan,
         stream_model_output: bool = True,
     ) -> AsyncIterator[ChatCompletionChunk]:
+        if invocation_parameters is not None and not isinstance(
+            invocation_parameters, PromptAwsInvocationParameters
+        ):
+            raise ValueError("invocation_parameters must be a PromptAwsInvocationParameters")
         async for chunk in self._handle_converse_api(
             messages=messages,
             tools=tools,
@@ -1628,7 +1517,7 @@ class BedrockStreamingClient(PlaygroundStreamingClient["BedrockRuntimeClient"]):
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptAwsInvocationParameters | None = None,
         span: OTelSpan,
     ) -> "ConverseStreamRequestTypeDef":
         from types_aiobotocore_bedrock_runtime.type_defs import (
@@ -1655,16 +1544,13 @@ class BedrockStreamingClient(PlaygroundStreamingClient["BedrockRuntimeClient"]):
             request["system"] = [{"text": system_prompt}]
 
         inference_config = InferenceConfigurationTypeDef()
-        if "max_tokens" in invocation_parameters and isinstance(
-            invocation_parameters["max_tokens"], int
-        ):
-            inference_config["maxTokens"] = invocation_parameters["max_tokens"]
-        if "temperature" in invocation_parameters and isinstance(
-            invocation_parameters["temperature"], float
-        ):
-            inference_config["temperature"] = invocation_parameters["temperature"]
-        if "top_p" in invocation_parameters and isinstance(invocation_parameters["top_p"], float):
-            inference_config["topP"] = invocation_parameters["top_p"]
+        if invocation_parameters:
+            if isinstance(invocation_parameters.aws.max_tokens, int):
+                inference_config["maxTokens"] = invocation_parameters.aws.max_tokens
+            if isinstance(invocation_parameters.aws.temperature, float):
+                inference_config["temperature"] = invocation_parameters.aws.temperature
+            if isinstance(invocation_parameters.aws.top_p, float):
+                inference_config["topP"] = invocation_parameters.aws.top_p
         if inference_config:
             request["inferenceConfig"] = inference_config
 
@@ -1780,7 +1666,7 @@ class BedrockStreamingClient(PlaygroundStreamingClient["BedrockRuntimeClient"]):
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptAwsInvocationParameters | None = None,
         span: OTelSpan,
         stream_model_output: bool = True,
     ) -> AsyncIterator[ChatCompletionChunk]:
@@ -2042,30 +1928,6 @@ OPENAI_REASONING_MODELS = [
 class OpenAIReasoningReasoningModelsMixin:
     """Mixin class for OpenAI-style reasoning model clients (o1, o3 series)."""
 
-    @classmethod
-    def supported_invocation_parameters(cls) -> list[InvocationParameter]:
-        return [
-            StringInvocationParameter(
-                invocation_name="reasoning_effort",
-                label="Reasoning Effort",
-                canonical_name=CanonicalParameterName.REASONING_EFFORT,
-            ),
-            IntInvocationParameter(
-                invocation_name="max_completion_tokens",
-                canonical_name=CanonicalParameterName.MAX_COMPLETION_TOKENS,
-                label="Max Completion Tokens",
-            ),
-            IntInvocationParameter(
-                invocation_name="seed",
-                canonical_name=CanonicalParameterName.RANDOM_SEED,
-                label="Seed",
-            ),
-            JSONInvocationParameter(
-                invocation_name="extra_body",
-                label="Extra Body",
-            ),
-        ]
-
 
 @register_llm_client(
     provider_key=GenerativeProviderKey.OPENAI,
@@ -2086,10 +1948,14 @@ class OpenAIResponsesAPIStreamingClient(
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptInvocationParameters | None = None,
         span: OTelSpan,
         stream_model_output: bool = True,
     ) -> AsyncIterator[ChatCompletionChunk]:
+        if invocation_parameters is not None and not isinstance(
+            invocation_parameters, PromptOpenAIInvocationParameters
+        ):
+            raise ValueError("invocation_parameters must be a PromptOpenAIInvocationParameters")
         async for chunk in self._responses_create(
             messages=messages,
             tools=tools,
@@ -2205,10 +2071,14 @@ class AzureOpenAIResponsesAPIStreamingClient(
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptInvocationParameters | None = None,
         span: OTelSpan,
         stream_model_output: bool = True,
     ) -> AsyncIterator[ChatCompletionChunk]:
+        if invocation_parameters is not None and not isinstance(
+            invocation_parameters, PromptOpenAIInvocationParameters
+        ):
+            raise ValueError("invocation_parameters must be a PromptOpenAIInvocationParameters")
         async for chunk in self._responses_create(
             messages=messages,
             tools=tools,
@@ -2338,49 +2208,18 @@ class AnthropicStreamingClient(PlaygroundStreamingClient["AsyncAnthropic"]):
             return True
         return isinstance(e, APIStatusError) and 500 <= e.status_code
 
-    @classmethod
-    def supported_invocation_parameters(cls) -> list[InvocationParameter]:
-        return [
-            IntInvocationParameter(
-                invocation_name="max_tokens",
-                canonical_name=CanonicalParameterName.MAX_COMPLETION_TOKENS,
-                label="Max Tokens",
-                default_value=1024,
-                required=True,
-            ),
-            BoundedFloatInvocationParameter(
-                invocation_name="temperature",
-                canonical_name=CanonicalParameterName.TEMPERATURE,
-                label="Temperature",
-                default_value=1.0,
-                min_value=0.0,
-                max_value=1.0,
-            ),
-            StringListInvocationParameter(
-                invocation_name="stop_sequences",
-                canonical_name=CanonicalParameterName.STOP_SEQUENCES,
-                label="Stop Sequences",
-            ),
-            BoundedFloatInvocationParameter(
-                invocation_name="top_p",
-                canonical_name=CanonicalParameterName.TOP_P,
-                label="Top P",
-                min_value=0.0,
-                max_value=1.0,
-            ),
-        ]
-
     def _anthropic_message_params(
         self,
         *,
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptAnthropicInvocationParameters | None = None,
     ) -> "MessageCreateParamsBase":
         from anthropic.types import JSONOutputFormatParam, OutputConfigParam, ToolParam
         from anthropic.types.message_create_params import MessageCreateParamsBase
-        from anthropic.types.thinking_config_param import ThinkingConfigParam
+        from anthropic.types.thinking_config_disabled_param import ThinkingConfigDisabledParam
+        from anthropic.types.thinking_config_enabled_param import ThinkingConfigEnabledParam
         from anthropic.types.tool_choice_any_param import ToolChoiceAnyParam
         from anthropic.types.tool_choice_auto_param import ToolChoiceAutoParam
         from anthropic.types.tool_choice_none_param import ToolChoiceNoneParam
@@ -2391,7 +2230,9 @@ class AnthropicStreamingClient(PlaygroundStreamingClient["AsyncAnthropic"]):
         params = MessageCreateParamsBase(
             messages=anthropic_messages,
             model=self.model_name,
-            max_tokens=invocation_parameters.get("max_tokens", 1024),
+            max_tokens=invocation_parameters.anthropic.max_tokens
+            if invocation_parameters
+            else 1024,
         )
 
         if system_prompt:
@@ -2448,24 +2289,22 @@ class AnthropicStreamingClient(PlaygroundStreamingClient["AsyncAnthropic"]):
                 assert_never(response_format.type)
 
         if invocation_parameters:
-            if "temperature" in invocation_parameters and isinstance(
-                invocation_parameters["temperature"], float
-            ):
-                params["temperature"] = invocation_parameters["temperature"]
-            if "stop_sequences" in invocation_parameters and isinstance(
-                invocation_parameters["stop_sequences"], list
-            ):
-                params["stop_sequences"] = invocation_parameters["stop_sequences"]
-            if "top_p" in invocation_parameters and isinstance(
-                invocation_parameters["top_p"], float
-            ):
-                params["top_p"] = invocation_parameters["top_p"]
-            if "top_k" in invocation_parameters and isinstance(invocation_parameters["top_k"], int):
-                params["top_k"] = invocation_parameters["top_k"]
-            if "thinking" in invocation_parameters and isinstance(
-                invocation_parameters["thinking"], dict
-            ):
-                params["thinking"] = cast(ThinkingConfigParam, invocation_parameters["thinking"])
+            if isinstance(invocation_parameters.anthropic.temperature, float):
+                params["temperature"] = invocation_parameters.anthropic.temperature
+            if isinstance(invocation_parameters.anthropic.stop_sequences, list):
+                params["stop_sequences"] = invocation_parameters.anthropic.stop_sequences
+            if isinstance(invocation_parameters.anthropic.top_p, float):
+                params["top_p"] = invocation_parameters.anthropic.top_p
+            thinking = invocation_parameters.anthropic.thinking
+            if thinking and thinking.type == "enabled":
+                params["thinking"] = ThinkingConfigEnabledParam(
+                    type="enabled",
+                    budget_tokens=thinking.budget_tokens,
+                )
+            elif thinking and thinking.type == "disabled":
+                params["thinking"] = ThinkingConfigDisabledParam(
+                    type="disabled",
+                )
 
         return params
 
@@ -2492,7 +2331,7 @@ class AnthropicStreamingClient(PlaygroundStreamingClient["AsyncAnthropic"]):
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptAnthropicInvocationParameters | None = None,
         span: OTelSpan,
     ) -> AsyncMessageStreamManager[Any]:
         params = self._anthropic_message_params(
@@ -2533,10 +2372,14 @@ class AnthropicStreamingClient(PlaygroundStreamingClient["AsyncAnthropic"]):
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptInvocationParameters | None = None,
         span: OTelSpan,
         stream_model_output: bool = True,
     ) -> AsyncIterator[ChatCompletionChunk]:
+        if invocation_parameters is not None and not isinstance(
+            invocation_parameters, PromptAnthropicInvocationParameters
+        ):
+            raise ValueError("invocation_parameters must be a PromptAnthropicInvocationParameters")
         text_chunks: list[TextChunk] = []
         tool_call_chunks: defaultdict[ToolCallID, list[ToolCallChunk]] = defaultdict(list)
         if not stream_model_output:
@@ -2745,17 +2588,7 @@ ANTHROPIC_REASONING_MODELS = [
     model_names=ANTHROPIC_REASONING_MODELS,
 )
 class AnthropicReasoningStreamingClient(AnthropicStreamingClient):
-    @classmethod
-    def supported_invocation_parameters(cls) -> list[InvocationParameter]:
-        invocation_params = super().supported_invocation_parameters()
-        invocation_params.append(
-            JSONInvocationParameter(
-                invocation_name="thinking",
-                canonical_name=CanonicalParameterName.ANTHROPIC_EXTENDED_THINKING,
-                label="Thinking Budget",
-            )
-        )
-        return invocation_params
+    pass
 
 
 GEMINI_2_0_MODELS = [
@@ -2815,57 +2648,13 @@ class GoogleStreamingClient(PlaygroundStreamingClient["GoogleAsyncClient"]):
         """Google has per-model rate limits within a project."""
         return (self._client_factory.rate_limit_key, self.model_name)
 
-    @classmethod
-    def supported_invocation_parameters(cls) -> list[InvocationParameter]:
-        return [
-            BoundedFloatInvocationParameter(
-                invocation_name="temperature",
-                canonical_name=CanonicalParameterName.TEMPERATURE,
-                label="Temperature",
-                default_value=1.0,
-                min_value=0.0,
-                max_value=2.0,
-            ),
-            IntInvocationParameter(
-                invocation_name="max_output_tokens",
-                canonical_name=CanonicalParameterName.MAX_COMPLETION_TOKENS,
-                label="Max Output Tokens",
-            ),
-            StringListInvocationParameter(
-                invocation_name="stop_sequences",
-                canonical_name=CanonicalParameterName.STOP_SEQUENCES,
-                label="Stop Sequences",
-            ),
-            FloatInvocationParameter(
-                invocation_name="presence_penalty",
-                label="Presence Penalty",
-                default_value=0.0,
-            ),
-            FloatInvocationParameter(
-                invocation_name="frequency_penalty",
-                label="Frequency Penalty",
-                default_value=0.0,
-            ),
-            BoundedFloatInvocationParameter(
-                invocation_name="top_p",
-                canonical_name=CanonicalParameterName.TOP_P,
-                label="Top P",
-                min_value=0.0,
-                max_value=1.0,
-            ),
-            IntInvocationParameter(
-                invocation_name="top_k",
-                label="Top K",
-            ),
-        ]
-
     def _google_prepare_generate_content(
         self,
         *,
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptGoogleInvocationParameters | None = None,
         span: OTelSpan,
     ) -> tuple[list[ContentDict], GenerateContentConfig]:
         from google.genai import types
@@ -2925,40 +2714,21 @@ class GoogleStreamingClient(PlaygroundStreamingClient["GoogleAsyncClient"]):
         top_k: int | None = None
         presence_penalty: float | None = None
         frequency_penalty: float | None = None
-        thinking_config: types.ThinkingConfig | None = None
         if invocation_parameters:
-            if "temperature" in invocation_parameters and isinstance(
-                invocation_parameters["temperature"], float
-            ):
-                temperature = invocation_parameters["temperature"]
-            if "max_output_tokens" in invocation_parameters and isinstance(
-                invocation_parameters["max_output_tokens"], int
-            ):
-                max_output_tokens = invocation_parameters["max_output_tokens"]
-            if "stop_sequences" in invocation_parameters and isinstance(
-                invocation_parameters["stop_sequences"], list
-            ):
-                stop_sequences = invocation_parameters["stop_sequences"]
-            if "top_p" in invocation_parameters and isinstance(
-                invocation_parameters["top_p"], float
-            ):
-                top_p = invocation_parameters["top_p"]
-            if "top_k" in invocation_parameters and isinstance(invocation_parameters["top_k"], int):
-                top_k = invocation_parameters["top_k"]
-            if "presence_penalty" in invocation_parameters and isinstance(
-                invocation_parameters["presence_penalty"], float
-            ):
-                presence_penalty = invocation_parameters["presence_penalty"]
-            if "frequency_penalty" in invocation_parameters and isinstance(
-                invocation_parameters["frequency_penalty"], float
-            ):
-                frequency_penalty = invocation_parameters["frequency_penalty"]
-            if "thinking_config" in invocation_parameters and isinstance(
-                invocation_parameters["thinking_config"], dict
-            ):
-                thinking_config = types.ThinkingConfig.model_validate(
-                    invocation_parameters["thinking_config"]
-                )
+            if isinstance(invocation_parameters.google.temperature, float):
+                temperature = invocation_parameters.google.temperature
+            if isinstance(invocation_parameters.google.max_output_tokens, int):
+                max_output_tokens = invocation_parameters.google.max_output_tokens
+            if invocation_parameters.google.stop_sequences:
+                stop_sequences = invocation_parameters.google.stop_sequences
+            if isinstance(invocation_parameters.google.top_p, float):
+                top_p = invocation_parameters.google.top_p
+            if isinstance(invocation_parameters.google.top_k, int):
+                top_k = invocation_parameters.google.top_k
+            if isinstance(invocation_parameters.google.presence_penalty, float):
+                presence_penalty = invocation_parameters.google.presence_penalty
+            if isinstance(invocation_parameters.google.frequency_penalty, float):
+                frequency_penalty = invocation_parameters.google.frequency_penalty
 
         config = types.GenerateContentConfig(
             tools=google_tools,
@@ -2971,7 +2741,7 @@ class GoogleStreamingClient(PlaygroundStreamingClient["GoogleAsyncClient"]):
             top_k=top_k,
             presence_penalty=presence_penalty,
             frequency_penalty=frequency_penalty,
-            thinking_config=thinking_config,
+            thinking_config=None,
             response_mime_type=response_mime_type,
             response_json_schema=response_json_schema,
         )
@@ -3083,10 +2853,14 @@ class GoogleStreamingClient(PlaygroundStreamingClient["GoogleAsyncClient"]):
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptInvocationParameters | None = None,
         span: OTelSpan,
         stream_model_output: bool = True,
     ) -> AsyncIterator[ChatCompletionChunk]:
+        if invocation_parameters is not None and not isinstance(
+            invocation_parameters, PromptGoogleInvocationParameters
+        ):
+            raise ValueError("invocation_parameters must be a PromptGoogleInvocationParameters")
         text_chunks: list[TextChunk] = []
         tool_call_chunks: defaultdict[ToolCallID, list[ToolCallChunk]] = defaultdict(list)
         contents, config = self._google_prepare_generate_content(
@@ -3170,39 +2944,7 @@ GEMINI_2_5_MODELS = [
     model_names=GEMINI_2_5_MODELS,
 )
 class Gemini25GoogleStreamingClient(GoogleStreamingClient):
-    @classmethod
-    def supported_invocation_parameters(cls) -> list[InvocationParameter]:
-        return [
-            BoundedFloatInvocationParameter(
-                invocation_name="temperature",
-                canonical_name=CanonicalParameterName.TEMPERATURE,
-                label="Temperature",
-                default_value=1.0,
-                min_value=0.0,
-                max_value=2.0,
-            ),
-            IntInvocationParameter(
-                invocation_name="max_output_tokens",
-                canonical_name=CanonicalParameterName.MAX_COMPLETION_TOKENS,
-                label="Max Output Tokens",
-            ),
-            StringListInvocationParameter(
-                invocation_name="stop_sequences",
-                canonical_name=CanonicalParameterName.STOP_SEQUENCES,
-                label="Stop Sequences",
-            ),
-            BoundedFloatInvocationParameter(
-                invocation_name="top_p",
-                canonical_name=CanonicalParameterName.TOP_P,
-                label="Top P",
-                min_value=0.0,
-                max_value=1.0,
-            ),
-            FloatInvocationParameter(
-                invocation_name="top_k",
-                label="Top K",
-            ),
-        ]
+    pass
 
 
 GEMINI_3_MODELS = [
@@ -3217,59 +2959,26 @@ GEMINI_3_MODELS = [
     model_names=GEMINI_3_MODELS,
 )
 class Gemini3GoogleStreamingClient(Gemini25GoogleStreamingClient):
-    @classmethod
-    def supported_invocation_parameters(cls) -> list[InvocationParameter]:
-        return [
-            StringInvocationParameter(
-                invocation_name="thinking_level",
-                label="Thinking Level",
-                canonical_name=CanonicalParameterName.REASONING_EFFORT,
-            ),
-            *super().supported_invocation_parameters(),
-        ]
-
     async def chat_completion_create(
         self,
         *,
         messages: Sequence[PlaygroundMessage],
         tools: PromptTools | None,
         response_format: PromptResponseFormat | None = None,
-        invocation_parameters: Mapping[str, Any] = MappingProxyType({}),
+        invocation_parameters: PromptInvocationParameters | None = None,
         tracer: Tracer | None = None,
         otel_context: OtelContext | None = None,
         stream_model_output: bool = True,
     ) -> AsyncIterator[ChatCompletionChunk]:
-        # Extract thinking_level and construct thinking_config
-        params = dict(invocation_parameters)
-        thinking_level = params.pop("thinking_level", None)
-
-        if thinking_level:
-            try:
-                import google.genai
-                from packaging.version import parse as parse_version
-
-                if parse_version(google.genai.__version__) < parse_version("1.50.0"):
-                    raise ImportError
-            except (ImportError, AttributeError):
-                raise BadRequest(
-                    "Reasoning capabilities for Gemini models require `google-genai>=1.50.0` "
-                    "and Python >= 3.10."
-                )
-
-            # NOTE: as of gemini 1.51.0 medium thinking is not supported
-            # but will eventually be added in a future version
-            # we are purposefully allowing users to select medium knowing
-            # it does not work.
-            params["thinking_config"] = {
-                "include_thoughts": True,
-                "thinking_level": thinking_level.upper(),
-            }
-
+        if invocation_parameters is not None and not isinstance(
+            invocation_parameters, PromptGoogleInvocationParameters
+        ):
+            raise ValueError("invocation_parameters must be a PromptGoogleInvocationParameters")
         async for chunk in super().chat_completion_create(
             messages=messages,
             tools=tools,
             response_format=response_format,
-            invocation_parameters=params,
+            invocation_parameters=invocation_parameters,
             tracer=tracer,
             otel_context=otel_context,
             stream_model_output=stream_model_output,

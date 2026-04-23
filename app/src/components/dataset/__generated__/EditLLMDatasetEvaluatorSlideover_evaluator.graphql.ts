@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<af3411c80f6fd2820d8f6433aeeb0e2c>>
+ * @generated SignedSource<<f2280b53968e6971853ba069d9cd7a0a>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -141,17 +141,52 @@ v7 = {
   "alias": null,
   "args": null,
   "kind": "ScalarField",
-  "name": "strict",
+  "name": "__typename",
   "storageKey": null
 },
 v8 = {
   "alias": null,
   "args": null,
   "kind": "ScalarField",
-  "name": "__typename",
+  "name": "temperature",
   "storageKey": null
 },
 v9 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "frequencyPenalty",
+  "storageKey": null
+},
+v10 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "presencePenalty",
+  "storageKey": null
+},
+v11 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "topP",
+  "storageKey": null
+},
+v12 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "stopSequences",
+  "storageKey": null
+},
+v13 = {
+  "alias": null,
+  "args": null,
+  "kind": "ScalarField",
+  "name": "strict",
+  "storageKey": null
+},
+v14 = {
   "alias": null,
   "args": null,
   "kind": "ScalarField",
@@ -332,8 +367,159 @@ return {
                     {
                       "alias": null,
                       "args": null,
-                      "kind": "ScalarField",
+                      "concreteType": null,
+                      "kind": "LinkedField",
                       "name": "invocationParameters",
+                      "plural": false,
+                      "selections": [
+                        {
+                          "kind": "InlineDataFragmentSpread",
+                          "name": "PromptInvocationParametersReadableFragment",
+                          "selections": [
+                            (v7/*: any*/),
+                            {
+                              "kind": "InlineFragment",
+                              "selections": [
+                                (v8/*: any*/),
+                                {
+                                  "alias": "openaiMaxTokens",
+                                  "args": null,
+                                  "kind": "ScalarField",
+                                  "name": "maxTokens",
+                                  "storageKey": null
+                                },
+                                {
+                                  "alias": null,
+                                  "args": null,
+                                  "kind": "ScalarField",
+                                  "name": "maxCompletionTokens",
+                                  "storageKey": null
+                                },
+                                (v9/*: any*/),
+                                (v10/*: any*/),
+                                (v11/*: any*/),
+                                {
+                                  "alias": null,
+                                  "args": null,
+                                  "kind": "ScalarField",
+                                  "name": "seed",
+                                  "storageKey": null
+                                },
+                                {
+                                  "alias": null,
+                                  "args": null,
+                                  "kind": "ScalarField",
+                                  "name": "reasoningEffort",
+                                  "storageKey": null
+                                }
+                              ],
+                              "type": "PromptOpenAIInvocationParameters",
+                              "abstractKey": null
+                            },
+                            {
+                              "kind": "InlineFragment",
+                              "selections": [
+                                {
+                                  "alias": "anthropicMaxTokens",
+                                  "args": null,
+                                  "kind": "ScalarField",
+                                  "name": "maxTokens",
+                                  "storageKey": null
+                                },
+                                (v8/*: any*/),
+                                (v11/*: any*/),
+                                (v12/*: any*/),
+                                {
+                                  "alias": null,
+                                  "args": null,
+                                  "concreteType": null,
+                                  "kind": "LinkedField",
+                                  "name": "thinking",
+                                  "plural": false,
+                                  "selections": [
+                                    (v7/*: any*/),
+                                    {
+                                      "kind": "InlineFragment",
+                                      "selections": [
+                                        {
+                                          "alias": null,
+                                          "args": null,
+                                          "kind": "ScalarField",
+                                          "name": "disabled",
+                                          "storageKey": null
+                                        }
+                                      ],
+                                      "type": "PromptAnthropicThinkingDisabled",
+                                      "abstractKey": null
+                                    },
+                                    {
+                                      "kind": "InlineFragment",
+                                      "selections": [
+                                        {
+                                          "alias": null,
+                                          "args": null,
+                                          "kind": "ScalarField",
+                                          "name": "budgetTokens",
+                                          "storageKey": null
+                                        }
+                                      ],
+                                      "type": "PromptAnthropicThinkingEnabled",
+                                      "abstractKey": null
+                                    }
+                                  ],
+                                  "storageKey": null
+                                }
+                              ],
+                              "type": "PromptAnthropicInvocationParameters",
+                              "abstractKey": null
+                            },
+                            {
+                              "kind": "InlineFragment",
+                              "selections": [
+                                (v8/*: any*/),
+                                {
+                                  "alias": null,
+                                  "args": null,
+                                  "kind": "ScalarField",
+                                  "name": "maxOutputTokens",
+                                  "storageKey": null
+                                },
+                                (v12/*: any*/),
+                                (v10/*: any*/),
+                                (v9/*: any*/),
+                                (v11/*: any*/),
+                                {
+                                  "alias": null,
+                                  "args": null,
+                                  "kind": "ScalarField",
+                                  "name": "topK",
+                                  "storageKey": null
+                                }
+                              ],
+                              "type": "PromptGoogleInvocationParameters",
+                              "abstractKey": null
+                            },
+                            {
+                              "kind": "InlineFragment",
+                              "selections": [
+                                {
+                                  "alias": "awsMaxTokens",
+                                  "args": null,
+                                  "kind": "ScalarField",
+                                  "name": "maxTokens",
+                                  "storageKey": null
+                                },
+                                (v8/*: any*/),
+                                (v11/*: any*/)
+                              ],
+                              "type": "PromptAwsInvocationParameters",
+                              "abstractKey": null
+                            }
+                          ],
+                          "args": null,
+                          "argumentDefinitions": []
+                        }
+                      ],
                       "storageKey": null
                     },
                     {
@@ -371,7 +557,7 @@ return {
                               "name": "schema",
                               "storageKey": null
                             },
-                            (v7/*: any*/)
+                            (v13/*: any*/)
                           ],
                           "storageKey": null
                         }
@@ -386,7 +572,7 @@ return {
                       "name": "template",
                       "plural": false,
                       "selections": [
-                        (v8/*: any*/),
+                        (v7/*: any*/),
                         {
                           "kind": "InlineFragment",
                           "selections": [
@@ -413,7 +599,7 @@ return {
                                   "name": "content",
                                   "plural": true,
                                   "selections": [
-                                    (v8/*: any*/),
+                                    (v7/*: any*/),
                                     {
                                       "kind": "InlineFragment",
                                       "selections": [
@@ -450,7 +636,7 @@ return {
                                           "name": "toolCall",
                                           "plural": false,
                                           "selections": [
-                                            (v9/*: any*/),
+                                            (v14/*: any*/),
                                             {
                                               "alias": null,
                                               "args": null,
@@ -488,7 +674,7 @@ return {
                                           "name": "toolResult",
                                           "plural": false,
                                           "selections": [
-                                            (v9/*: any*/),
+                                            (v14/*: any*/),
                                             {
                                               "alias": null,
                                               "args": null,
@@ -557,7 +743,7 @@ return {
                                 (v1/*: any*/),
                                 (v4/*: any*/),
                                 (v6/*: any*/),
-                                (v7/*: any*/)
+                                (v13/*: any*/)
                               ],
                               "storageKey": null
                             }

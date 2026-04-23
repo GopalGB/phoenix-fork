@@ -19,12 +19,9 @@ export type PromptToSDKSnippetFn = ({
   template,
 }: Pick<
   PromptVersion,
-  | "invocationParameters"
-  | "modelName"
-  | "modelProvider"
-  | "responseFormat"
-  | "tools"
+  "modelName" | "modelProvider" | "responseFormat" | "tools"
 > & {
+  invocationParameters: Record<string, unknown>;
   template: {
     messages: unknown[];
   };
@@ -588,7 +585,12 @@ export const mapPromptToSDKSnippet = ({
   promptVersion,
   language,
 }: {
-  promptVersion: Omit<PromptVersion, " $fragmentType">;
+  promptVersion: Omit<
+    PromptVersion,
+    " $fragmentType" | "invocationParameters"
+  > & {
+    invocationParameters: Record<string, unknown>;
+  };
   language: ProgrammingLanguage;
 }) => {
   const generator =
@@ -632,7 +634,12 @@ export function mapPromptToClientSnippet({
   promptVersion,
   language,
 }: {
-  promptVersion: Omit<PromptVersion, " $fragmentType">;
+  promptVersion: Omit<
+    PromptVersion,
+    " $fragmentType" | "invocationParameters"
+  > & {
+    invocationParameters: Record<string, unknown>;
+  };
   language: ProgrammingLanguage;
 }) {
   const generator =

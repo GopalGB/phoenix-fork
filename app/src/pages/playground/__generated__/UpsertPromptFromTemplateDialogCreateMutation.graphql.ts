@@ -1,5 +1,5 @@
 /**
- * @generated SignedSource<<4c4f7f270432bb3283b811e2eb189871>>
+ * @generated SignedSource<<379d86b519901928755e9e38a523d494>>
  * @lightSyntaxTransform
  * @nogrep
  */
@@ -10,6 +10,7 @@
 
 import { ConcreteRequest } from 'relay-runtime';
 export type GenerativeProviderKey = "ANTHROPIC" | "AWS" | "AZURE_OPENAI" | "CEREBRAS" | "DEEPSEEK" | "FIREWORKS" | "GOOGLE" | "GROQ" | "MOONSHOT" | "OLLAMA" | "OPENAI" | "PERPLEXITY" | "TOGETHER" | "XAI";
+export type OpenAIReasoningEffort = "HIGH" | "LOW" | "MEDIUM" | "MINIMAL" | "NONE" | "XHIGH";
 export type PromptMessageRole = "AI" | "SYSTEM" | "TOOL" | "USER";
 export type PromptTemplateFormat = "F_STRING" | "MUSTACHE" | "NONE";
 export type CreateChatPromptInput = {
@@ -22,7 +23,7 @@ export type CreateChatPromptInput = {
 export type ChatPromptVersionInput = {
   customProviderId?: string | null;
   description?: string | null;
-  invocationParameters: any;
+  invocationParameters: PromptInvocationParametersInput;
   modelName: string;
   modelProvider: GenerativeProviderKey;
   responseFormat?: PromptResponseFormatJSONSchemaInput | null;
@@ -57,6 +58,53 @@ export type ToolCallFunctionInput = {
 export type ToolResultContentValueInput = {
   result: any;
   toolCallId: string;
+};
+export type PromptInvocationParametersInput = {
+  anthropic?: PromptAnthropicInvocationParametersInput | null;
+  aws?: PromptAwsInvocationParametersInput | null;
+  google?: PromptGoogleInvocationParametersInput | null;
+  openai?: PromptOpenAIInvocationParametersInput | null;
+};
+export type PromptOpenAIInvocationParametersInput = {
+  frequencyPenalty?: number | null;
+  maxCompletionTokens?: number | null;
+  maxTokens?: number | null;
+  presencePenalty?: number | null;
+  reasoningEffort?: OpenAIReasoningEffort | null;
+  seed?: number | null;
+  temperature?: number | null;
+  topP?: number | null;
+};
+export type PromptAnthropicInvocationParametersInput = {
+  maxTokens: number;
+  stopSequences?: ReadonlyArray<string> | null;
+  temperature?: number | null;
+  thinking?: PromptAnthropicThinkingConfigInput | null;
+  topP?: number | null;
+};
+export type PromptAnthropicThinkingConfigInput = {
+  disabled?: AnthropicThinkingDisabledMarkerInput | null;
+  enabled?: AnthropicThinkingEnabledInput | null;
+};
+export type AnthropicThinkingDisabledMarkerInput = {
+  disabled?: boolean;
+};
+export type AnthropicThinkingEnabledInput = {
+  budgetTokens: number;
+};
+export type PromptGoogleInvocationParametersInput = {
+  frequencyPenalty?: number | null;
+  maxOutputTokens?: number | null;
+  presencePenalty?: number | null;
+  stopSequences?: ReadonlyArray<string> | null;
+  temperature?: number | null;
+  topK?: number | null;
+  topP?: number | null;
+};
+export type PromptAwsInvocationParametersInput = {
+  maxTokens?: number | null;
+  temperature?: number | null;
+  topP?: number | null;
 };
 export type PromptToolsInput = {
   disableParallelToolCalls?: boolean | null;

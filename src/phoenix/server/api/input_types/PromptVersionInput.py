@@ -31,9 +31,11 @@ from phoenix.db.types.prompts import (
     ToolCallContentPart,
     ToolCallFunction,
     ToolResultContentPart,
-    validate_invocation_parameters,
 )
 from phoenix.server.api.exceptions import BadRequest
+from phoenix.server.api.input_types.PromptInvocationParametersInput import (
+    PromptInvocationParametersInput,
+)
 from phoenix.server.api.types.GenerativeModelCustomProvider import GenerativeModelCustomProvider
 from phoenix.server.api.types.GenerativeProvider import GenerativeProviderKey
 from phoenix.server.api.types.node import from_global_id_with_expected_type
@@ -242,7 +244,7 @@ class ChatPromptVersionInput:
     description: Optional[str] = None
     template_format: PromptTemplateFormat
     template: PromptChatTemplateInput
-    invocation_parameters: JSON
+    invocation_parameters: PromptInvocationParametersInput
     tools: Optional[PromptToolsInput] = None
     response_format: Optional[PromptResponseFormatJSONSchemaInput] = None
     model_provider: GenerativeProviderKey
@@ -259,27 +261,13 @@ class ChatPromptVersionInput:
             expected_type_name=GenerativeModelCustomProvider.__name__,
         )
 
-    def __post_init__(self) -> None:
-        self.invocation_parameters = JSON(
-            {
-                k: v
-                for k, v in cast(dict[str, Any], self.invocation_parameters).items()
-                if v is not None
-            }
-        )
-
     def to_orm_prompt_version(
         self,
         user_id: int | None = None,
     ) -> models.PromptVersion:
-        model_provider = self.model_provider.to_model_provider()
-
         tools = self.tools.to_orm() if self.tools else None
         response_format = self.response_format.to_orm() if self.response_format else None
-        invocation_parameters = validate_invocation_parameters(
-            cast(dict[str, Any], self.invocation_parameters),
-            model_provider,
-        )
+        invocation_parameters = self.invocation_parameters.to_orm()
         custom_provider_id: Optional[int] = None
         if self.custom_provider_id is not None:
             custom_provider_id = from_global_id_with_expected_type(
