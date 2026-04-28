@@ -3118,6 +3118,7 @@ type SandboxBackendInfo {
   displayName: String!
   supportedLanguages: [Language!]!
   status: SandboxBackendStatus!
+  statusDetail: String
   dependencyHints: [String!]!
   configFieldSpecs: [ConfigFieldSpecType!]!
   supportsEnvVars: Boolean!
@@ -3127,6 +3128,7 @@ type SandboxBackendInfo {
 
 enum SandboxBackendStatus {
   AVAILABLE
+  MISSING_CREDENTIALS
   UNAVAILABLE
   NOT_INSTALLED
 }
