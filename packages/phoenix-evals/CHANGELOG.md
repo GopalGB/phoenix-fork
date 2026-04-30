@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1](https://github.com/Arize-ai/phoenix/compare/arize-phoenix-evals-v3.0.0...arize-phoenix-evals-v3.0.1) (2026-04-30)
+
+
+### Bug Fixes
+
+* **evals:** replace hardcoded model capability lists with runtime fallback ([#12709](https://github.com/Arize-ai/phoenix/issues/12709)) ([69a2ade](https://github.com/Arize-ai/phoenix/commit/69a2ade1405a78b10d7778e8d8ba24229d2fb405))
+
 ## [3.0.0](https://github.com/Arize-ai/phoenix/compare/arize-phoenix-evals-v2.13.0...arize-phoenix-evals-v3.0.0) (2026-04-07)
 
 
