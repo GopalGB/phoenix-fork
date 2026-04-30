@@ -1,5 +1,17 @@
 # Changelog
 
+## [15.0.1](https://github.com/Arize-ai/phoenix/compare/arize-phoenix-v15.0.0...arize-phoenix-v15.0.1) (2026-04-30)
+
+
+### Bug Fixes
+
+* **playground:** accept unwrapped AWS Bedrock tool schemas ([#12937](https://github.com/Arize-ai/phoenix/issues/12937)) ([b450f10](https://github.com/Arize-ai/phoenix/commit/b450f107a0d6d96aba9511d5624a5c45868743ae))
+
+
+### Documentation
+
+* add phoenix-release-please skill and note no v15 migration ([#12932](https://github.com/Arize-ai/phoenix/issues/12932)) ([4bd2b43](https://github.com/Arize-ai/phoenix/commit/4bd2b437e88f0011ec983460a49b1dce6209d3c3))
+
 ## [15.0.0](https://github.com/Arize-ai/phoenix/compare/arize-phoenix-v14.17.0...arize-phoenix-v15.0.0) (2026-04-29)
 
 
