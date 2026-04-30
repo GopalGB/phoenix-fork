@@ -50,3 +50,44 @@ class TestResolveContextualTools:
         schema = tool.parameters_json_schema
         assert schema.get("required") == ["condition"]
         assert "condition" in schema.get("properties", {})
+
+    def test_set_root_spans_only_not_advertised_without_toggle(self, db: DbSessionFactory) -> None:
+        resolved = ResolvedContexts(
+            project=ProjectContext(
+                type="project",
+                project_node_id="UHJvamVjdDox",
+                span_filter="",
+            )
+        )
+        defs, _ = resolve_contextual_tools(resolved, ToolExecutionEnv(user=None, db=db))
+        names = [tool.name for tool in defs]
+        assert "set_root_spans_only" not in names
+
+    def test_set_root_spans_only_advertised_when_toggle_present(self, db: DbSessionFactory) -> None:
+        resolved = ResolvedContexts(
+            project=ProjectContext(
+                type="project",
+                project_node_id="UHJvamVjdDox",
+                root_spans_only=True,
+            )
+        )
+        defs, dispatch = resolve_contextual_tools(resolved, ToolExecutionEnv(user=None, db=db))
+        names = [tool.name for tool in defs]
+        assert "set_root_spans_only" in names
+        assert dispatch == {}
+
+    def test_set_root_spans_only_schema_requires_root_spans_only(
+        self, db: DbSessionFactory
+    ) -> None:
+        resolved = ResolvedContexts(
+            project=ProjectContext(
+                type="project",
+                project_node_id="UHJvamVjdDox",
+                root_spans_only=False,
+            )
+        )
+        defs, _ = resolve_contextual_tools(resolved, ToolExecutionEnv(user=None, db=db))
+        tool = next(t for t in defs if t.name == "set_root_spans_only")
+        schema = tool.parameters_json_schema
+        assert schema.get("required") == ["rootSpansOnly"]
+        assert "rootSpansOnly" in schema.get("properties", {})

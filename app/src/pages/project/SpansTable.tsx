@@ -24,6 +24,9 @@ import {
 } from "react-resizable-panels";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 
+import type { AgentContext } from "@phoenix/agent/context/agentContextTypes";
+import { useAdvertiseAgentContext } from "@phoenix/agent/context/useAdvertiseAgentContext";
+import { SET_ROOT_SPANS_ONLY_TOOL_NAME } from "@phoenix/agent/extensions/toolRegistry";
 import {
   Button,
   CopyToClipboardButton,
@@ -59,6 +62,7 @@ import { SpanStatusCodeIcon } from "@phoenix/components/trace/SpanStatusCodeIcon
 import { SpanTokenCosts } from "@phoenix/components/trace/SpanTokenCosts";
 import { SpanTokenCount } from "@phoenix/components/trace/SpanTokenCount";
 import { SELECTED_SPAN_NODE_ID_PARAM } from "@phoenix/constants/searchParams";
+import { useAgentStore } from "@phoenix/contexts/AgentContext";
 import { useFeatureFlag } from "@phoenix/contexts/FeatureFlagsContext";
 import { useProjectContext } from "@phoenix/contexts/ProjectContext";
 import { useStreamState } from "@phoenix/contexts/StreamStateContext";
@@ -79,6 +83,7 @@ import { RetrievalEvaluationLabel } from "./RetrievalEvaluationLabel";
 import { getVisibleSpanAnnotationColumnNames } from "./spanAnnotationUtils";
 import { SpanColumnSelector } from "./SpanColumnSelector";
 import { SpanFilterConditionField } from "./SpanFilterConditionField";
+import { useSpanFilters } from "./SpanFiltersContext";
 import { SpanNotesTableCell } from "./SpanNotesTableCell";
 import { SpanSelectionToolbar } from "./SpanSelectionToolbar";
 import { SpansTableAside } from "./SpansTableAside";
@@ -186,7 +191,61 @@ export function SpansTable(props: SpansTableProps) {
   const [rowSelection, setRowSelection] = useState({});
   const [sorting, setSorting] = useState<SortingState>([]);
   const [filterCondition, setFilterCondition] = useState<string>("");
-  const [rootSpansOnly, setRootSpansOnly] = useState<boolean>(true);
+  const { rootSpansOnly, setRootSpansOnly } = useSpanFilters();
+  const projectId = useTracingContext((state) => state.projectId);
+  const agentStore = useAgentStore();
+
+  // Advertise the current rootSpansOnly state on the project context so the
+  // server-advertised `set_root_spans_only` tool is gated on this toggle being
+  // mounted, and so the agent can see the current selection. This is layered
+  // on top of the route-derived project context (which carries no toggle
+  // state) and the SpanFilterConditionField's spanFilter advertisement via
+  // the merge in `selectActiveContexts`.
+  const advertisedRootSpansOnlyContext = useMemo<AgentContext | null>(() => {
+    if (!projectId) {
+      return null;
+    }
+    return {
+      type: "project",
+      projectNodeId: projectId,
+      rootSpansOnly,
+    };
+  }, [projectId, rootSpansOnly]);
+  useAdvertiseAgentContext(advertisedRootSpansOnlyContext);
+
+  // Register a client action so the agent's set_root_spans_only tool
+  // (advertised by the server, executed in the browser) can drive this
+  // toggle. The handler updates the SpanFiltersContext, which causes the
+  // table to refetch with the new selection.
+  const setRootSpansOnlyRef = useRef(setRootSpansOnly);
+  setRootSpansOnlyRef.current = setRootSpansOnly;
+  useEffect(() => {
+    const { registerClientAction, unregisterClientAction } =
+      agentStore.getState();
+    registerClientAction(SET_ROOT_SPANS_ONLY_TOOL_NAME, async (input) => {
+      if (
+        typeof input !== "object" ||
+        input === null ||
+        !("rootSpansOnly" in input) ||
+        typeof (input as { rootSpansOnly: unknown }).rootSpansOnly !== "boolean"
+      ) {
+        return {
+          ok: false,
+          error: "Invalid input: expected { rootSpansOnly: boolean }.",
+        };
+      }
+      const next = (input as { rootSpansOnly: boolean }).rootSpansOnly;
+      setRootSpansOnlyRef.current(next);
+      return {
+        ok: true,
+        output: next ? "Showing root spans only." : "Showing all spans.",
+      };
+    });
+    return () => {
+      unregisterClientAction(SET_ROOT_SPANS_ONLY_TOOL_NAME);
+    };
+  }, [agentStore]);
+
   const columnVisibility = useTracingContext((state) => state.columnVisibility);
   const isTracingUxEnabled = useFeatureFlag("tracing_ux");
   const showTableAside = useProjectContext((state) => state.showTableAside);

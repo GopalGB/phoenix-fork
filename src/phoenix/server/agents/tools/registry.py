@@ -69,6 +69,12 @@ def _available_context_types(resolved: ResolvedContexts) -> frozenset[str]:
         # input is mounted and tools that drive it can be advertised.
         if resolved.project.span_filter is not None:
             names.add("span_filter")
+        # ``root_spans_only`` is a virtual context name derived from the
+        # project carrying a root_spans_only toggle. Presence (True or False)
+        # signals that the on-screen root/all toggle is mounted and tools
+        # that drive it can be advertised.
+        if resolved.project.root_spans_only is not None:
+            names.add("root_spans_only")
     if resolved.trace is not None:
         names.add("trace")
     if resolved.span is not None:
@@ -106,5 +112,11 @@ def resolve_contextual_tools(
 from phoenix.server.agents.tools.apply_span_filter_condition import (  # noqa: E402
     build_apply_span_filter_condition_tool,
 )
+from phoenix.server.agents.tools.set_root_spans_only import (  # noqa: E402
+    build_set_root_spans_only_tool,
+)
 
-CONTEXTUAL_TOOLS: list[ContextualTool] = [build_apply_span_filter_condition_tool()]
+CONTEXTUAL_TOOLS: list[ContextualTool] = [
+    build_apply_span_filter_condition_tool(),
+    build_set_root_spans_only_tool(),
+]

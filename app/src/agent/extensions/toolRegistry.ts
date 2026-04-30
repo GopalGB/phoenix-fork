@@ -130,6 +130,15 @@ const askUserAgentTool = createRegisteredAgentTool<ElicitToolInput>({
 export const APPLY_SPAN_FILTER_CONDITION_TOOL_NAME =
   "apply_span_filter_condition";
 
+/**
+ * Server-advertised, client-executed name for the spans-table root-vs-all
+ * toggle. The server (see agents/tools/set_root_spans_only.py) owns the
+ * canonical schema and gates advertisement on the `root_spans_only` UI
+ * context being present; the matching client action is registered by
+ * SpansTable while it is mounted.
+ */
+export const SET_ROOT_SPANS_ONLY_TOOL_NAME = "set_root_spans_only";
+
 type ApplySpanFilterConditionInput = {
   condition: string;
 };
@@ -144,7 +153,11 @@ const applySpanFilterConditionToolDefinition: FrontendToolDefinition = {
     "Apply a Phoenix span filter to the project span list to narrow the spans visible in the UI. " +
     "Examples: `span_kind == 'LLM'`, `status_code == 'ERROR' and latency_ms >= 5000`, " +
     "`'agent' in input.value`, `annotations['Hallucination'].label == 'hallucinated'`. " +
-    "Pass an empty string to clear the filter.",
+    "Pass an empty string to clear the filter. " +
+    "This filter applies on top of the current root-vs-all-spans selection: " +
+    "if you are looking for non-root spans (tool calls, retriever spans, " +
+    "nested LLM calls, etc.), call `set_root_spans_only` with `false` first " +
+    "so the filter has every span to match against.",
   parameters: {
     type: "object",
     properties: {
@@ -208,11 +221,96 @@ const applySpanFilterConditionAgentTool =
     },
   });
 
+type SetRootSpansOnlyInput = {
+  rootSpansOnly: boolean;
+};
+
+// Mirrors the server-side schema in agents/tools/set_root_spans_only.py. The
+// server is the source of truth advertised to the model; this copy exists so
+// the description still reads correctly if it ever surfaces in synthesis,
+// session summaries, or developer tooling.
+const setRootSpansOnlyToolDefinition: FrontendToolDefinition = {
+  name: SET_ROOT_SPANS_ONLY_TOOL_NAME,
+  description:
+    "Toggle the spans table between root spans only and all spans. " +
+    "Pass `true` to show only the top-level (root) span of each trace, or " +
+    "`false` to show every span — set this to `false` when looking for spans " +
+    "that are not roots (e.g. tool calls, retriever spans, or nested LLM " +
+    "calls), since `apply_span_filter_condition` only filters within the " +
+    "current root/all selection.",
+  parameters: {
+    type: "object",
+    properties: {
+      rootSpansOnly: {
+        type: "boolean",
+        description:
+          "Whether the spans table should restrict to root spans (true) or include every span (false).",
+      },
+    },
+    required: ["rootSpansOnly"],
+    additionalProperties: false,
+  },
+};
+
+function parseSetRootSpansOnlyInput(
+  input: unknown
+): SetRootSpansOnlyInput | null {
+  if (typeof input !== "object" || input === null) return null;
+  const candidate = input as { rootSpansOnly?: unknown };
+  if (typeof candidate.rootSpansOnly !== "boolean") return null;
+  return { rootSpansOnly: candidate.rootSpansOnly };
+}
+
+const setRootSpansOnlyAgentTool =
+  createRegisteredAgentTool<SetRootSpansOnlyInput>({
+    definition: setRootSpansOnlyToolDefinition,
+    parseInput: parseSetRootSpansOnlyInput,
+    invalidInputErrorText: `Invalid ${SET_ROOT_SPANS_ONLY_TOOL_NAME} input. Expected { rootSpansOnly: boolean }.`,
+    isServerAdvertised: true,
+    execute: async ({ toolCall, input, addToolOutput, agentStore }) => {
+      const action =
+        agentStore.getState().registeredClientActions[
+          SET_ROOT_SPANS_ONLY_TOOL_NAME
+        ];
+      if (!action) {
+        await addToolOutput({
+          state: "output-error",
+          tool: SET_ROOT_SPANS_ONLY_TOOL_NAME,
+          toolCallId: toolCall.toolCallId,
+          errorText:
+            "The spans table is not mounted on this page; cannot toggle root vs all spans.",
+        });
+        return;
+      }
+      const result = await action(input);
+      if (result.ok) {
+        await addToolOutput({
+          state: "output-available",
+          tool: SET_ROOT_SPANS_ONLY_TOOL_NAME,
+          toolCallId: toolCall.toolCallId,
+          output:
+            result.output ??
+            (input.rootSpansOnly
+              ? "Showing root spans only."
+              : "Showing all spans."),
+        });
+      } else {
+        await addToolOutput({
+          state: "output-error",
+          tool: SET_ROOT_SPANS_ONLY_TOOL_NAME,
+          toolCallId: toolCall.toolCallId,
+          errorText: result.error,
+        });
+      }
+    },
+  });
+
 /** Ordered registry of all frontend-executable tools. */
 const agentToolRegistry: RegisteredAgentTool<unknown>[] = [
   bashAgentTool as RegisteredAgentTool<unknown>,
   askUserAgentTool as RegisteredAgentTool<unknown>,
   applySpanFilterConditionAgentTool as RegisteredAgentTool<unknown>,
+  setRootSpansOnlyAgentTool as RegisteredAgentTool<unknown>,
 ];
 
 /** Fast lookup map for runtime tool dispatch by name. */

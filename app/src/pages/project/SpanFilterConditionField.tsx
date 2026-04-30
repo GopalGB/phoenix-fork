@@ -45,7 +45,7 @@ import { useTracingContext } from "@phoenix/contexts/TracingContext";
 import environment from "@phoenix/RelayEnvironment";
 
 import type { SpanFilterConditionFieldValidationQuery } from "./__generated__/SpanFilterConditionFieldValidationQuery.graphql";
-import { useSpanFilterCondition } from "./SpanFilterConditionContext";
+import { useSpanFilters } from "./SpanFiltersContext";
 
 const codeMirrorCSS = css`
   flex: 1 1 auto;
@@ -287,7 +287,7 @@ export function SpanFilterConditionField(props: SpanFilterConditionFieldProps) {
     useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const { filterCondition, setFilterCondition, appendFilterCondition } =
-    useSpanFilterCondition();
+    useSpanFilters();
   const deferredFilterCondition = useDeferredValue(filterCondition);
   const { theme } = useTheme();
   const codeMirrorTheme = theme === "light" ? githubLight : githubDark;

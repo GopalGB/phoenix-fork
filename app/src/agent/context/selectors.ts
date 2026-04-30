@@ -26,13 +26,14 @@ export function selectActiveContexts(state: AgentState): AgentContext[] {
       return;
     }
     if (existing.type === "project" && context.type === "project") {
-      // Layer mounted spanFilter onto the route-derived entry. The route
-      // version usually has no spanFilter; the mounted version is the only
-      // source of the on-screen filter expression.
+      // Layer mounted span filters onto the route-derived entry. The route
+      // version usually has no spanFilter or rootSpansOnly; the mounted
+      // versions are the only source of the on-screen filter state.
       byKey.set(key, {
         ...existing,
         ...context,
         spanFilter: context.spanFilter ?? existing.spanFilter,
+        rootSpansOnly: context.rootSpansOnly ?? existing.rootSpansOnly,
       });
     }
   };

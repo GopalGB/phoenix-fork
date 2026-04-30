@@ -10,7 +10,11 @@ APPLY_SPAN_FILTER_CONDITION_DESCRIPTION = (
     "Apply a Phoenix span filter to the project span list. Examples: "
     "`span_kind == 'LLM'`, `status_code == 'ERROR' and latency_ms >= 5000`, "
     "`'agent' in input.value`, `annotations['Hallucination'].label == 'hallucinated'`. "
-    "Pass an empty string to clear the filter."
+    "Pass an empty string to clear the filter. "
+    "This filter applies on top of the current root-vs-all-spans selection: "
+    "if you are looking for non-root spans (tool calls, retriever spans, "
+    "nested LLM calls, etc.), call `set_root_spans_only` with `false` first "
+    "so the filter has every span to match against."
 )
 
 APPLY_SPAN_FILTER_CONDITION_PARAMETERS: dict[str, Any] = {
